@@ -14,7 +14,8 @@ class Toolbox(Protocol):
 
 @attr.s
 class Job(Protocol):
-    def name(self) -> str:
+    @staticmethod
+    def name() -> str:
         pass
 
     async def run(self, toolbox: Toolbox) -> Any:
@@ -25,16 +26,16 @@ GenericJob = TypeVar('GenericJob', bound=Job)
 
 
 @attr.s
-class Registry:
-    _toolbox: Toolbox = attr.ib(default=attr.Factory(Toolbox))
+class JobRegistry:
     _jobs: Dict[str, Job] = attr.ib(default=attr.Factory(dict))
 
     @property
     def job_count(self) -> int:
         return len(self._jobs)
 
-    def job(self, job: Job) -> None:
-        self._jobs[job.name(), job.__class__]
+    def job(self, cls: Job) -> None:
+        self._jobs[cls.name()] = cls
+        return cls
 
     def get(self, name: str) -> Optional[Job]:
         return self._jobs.get(name, default=None)

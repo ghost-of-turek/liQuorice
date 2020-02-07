@@ -2,7 +2,7 @@ import attr
 
 from typing import Dict
 
-from liquorice.core.tasks import Job, Toolbox
+from liquorice.core.tasks import Job, JobRegistry, Toolbox
 
 
 DSN = 'postgres://liquorice:liquorice@localhost:5432/liquorice'
@@ -13,12 +13,17 @@ class ExampleToolbox(Toolbox):
     contacts: Dict[str, str] = attr.ib()
 
 
+job_registry = JobRegistry()
+
+
+@job_registry.job
 @attr.s
 class SendMessage(Job):
     message: str = attr.ib(default='')
-    to: str = attr.ib(default='artur')
+    to: str = attr.ib(default='nietzche')
 
-    def name(self) -> str:
+    @staticmethod
+    def name() -> str:
         return 'send_message'
 
     async def run(self, toolbox: ExampleToolbox) -> None:

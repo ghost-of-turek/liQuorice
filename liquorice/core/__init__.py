@@ -1,7 +1,7 @@
 from liquorice.core.db import db
 from liquorice.core.tasks import (
     Job,
-    Registry,
+    JobRegistry,
     Schedule,
     Scheduler,
     Task,
@@ -9,4 +9,6 @@ from liquorice.core.tasks import (
 )
 
 
-__all__ = ['db', 'Job', 'Registry', 'Schedule', 'Scheduler', 'Task', 'Toolbox']
+__all__ = [
+    'db', 'Job', 'JobRegistry', 'Schedule', 'Scheduler', 'Task', 'Toolbox',
+]

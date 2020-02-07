@@ -27,20 +27,18 @@ def get_tasks():
         Task(
             job=SendMessage(
                 message='Hello from the dark side!',
-                to='artur',
+                to='nietzsche',
             ),
-        ),
-        # `SendMessage` by default sends them to me
-        # so I can omit this as well.
-        Task(
-            job=SendMessage(message='Stares at Artur in awkward silence.'),
         ),
         Task(
             job=SendMessage(
-                message='Stares at Darkness in awkward silence.',
+                message='Stares at The Abyss in awkward silence.',
                 to='darkness',
             ),
         ),
+        # `SendMessage` by default sends them to Nietzsche so I can omit this.
+        # Actually, let's omit all the boring crud and get to the point.
+        Task(SendMessage('Stares at Nietzche majestically.')),
     ]
 
 

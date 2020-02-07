@@ -4,18 +4,18 @@ from setuptools import find_packages, setup
 with open('README.md') as f:
     long_description = f.read()
 
-PACKAGE_VERSION = '0.0.1'
+PACKAGE_VERSION = '0.0.2'
 
 
 setup(
     name='liquorice',
     version=PACKAGE_VERSION,
     namespace_packages=['liquorice'],
-    packages=find_packages(exclude=['liquorice.*.*']),
+    packages=find_packages(),
     python_requires='>=3.7',
     install_requires=[
         'attrs',
-        'orm',
+        'gino',
         'SQLAlchemy',
     ],
     description='Fully-async generic task queue',
@@ -42,9 +42,5 @@ setup(
         'Topic :: Utilities',
     ],
     keywords=['async', 'queue', 'task', 'job'],
-    entry_points={
-        'console_scripts': [],
-    },
     url='https://github.com/ghost-of-turek/liQuorice',
-    project_urls={},
 )

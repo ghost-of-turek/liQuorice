@@ -13,12 +13,11 @@ setup(
     namespace_packages=['liquorice'],
     packages=find_packages(),
     python_requires='>=3.7',
-    install_requires=[
-        'attrs',
-        'gino',
-        'SQLAlchemy',
-    ],
-    description='Fully-async generic task queue',
+    install_requires=['attrs', 'gino', 'SQLAlchemy'],
+    extras_require={
+        'testing': ['mypy', 'flake8', 'pytest']
+    },
+    description='Generic task queue for async Python',
     long_description=long_description,
     long_description_content_type='text/markdown',
     license='MIT',

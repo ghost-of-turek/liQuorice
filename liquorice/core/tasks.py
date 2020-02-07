@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, Generic, TypeVar, List, Optional, Protocol
 
 import attr
 
@@ -21,6 +21,9 @@ class Job(Protocol):
         pass
 
 
+GenericJob = TypeVar('GenericJob', bound=Job)
+
+
 @attr.s
 class Registry:
     _toolbox: Toolbox = attr.ib(default=attr.Factory(Toolbox))
@@ -31,7 +34,7 @@ class Registry:
         return len(self._jobs)
 
     def job(self, job: Job) -> None:
-        self._jobs[job.name(), job]
+        self._jobs[job.name(), job.__class__]
 
     def get(self, name: str) -> Optional[Job]:
         return self._jobs.get(name, default=None)
@@ -40,7 +43,7 @@ class Registry:
 @attr.s
 class Schedule:
     due_at: Optional[datetime] = attr.ib(default=None)
-    after: Optional[List['Task']] = attr.ib(default=attr.Factory(list))
+    after_tasks: List['Task'] = attr.ib(default=attr.Factory(list))
 
     @classmethod
     def now(cls) -> 'Schedule':
@@ -48,12 +51,12 @@ class Schedule:
 
     @classmethod
     def after(cls, task: 'Task') -> 'Schedule':
-        return cls(after=[task])
+        return cls(after_tasks=[task])
 
 
 @attr.s
-class Task:
-    job: Job = attr.ib()
+class Task(Generic[GenericJob]):
+    job: GenericJob = attr.ib()
     schedule: Schedule = attr.ib(default=Schedule.now())
     status: TaskStatus = attr.ib(default=TaskStatus.NEW)
 
@@ -75,8 +78,8 @@ class Scheduler:
     async def schedule(self, task: Task) -> QueuedTask:
         return await QueuedTask.create(
             job=task.job.name(),
-            data={},  # fixme: this
+            data=attr.asdict(task.job),
             due_at=task.schedule.due_at,
-            # after=task.schedule.after,
+            # after_tasks=task.schedule.after,
             status=task.status
         )

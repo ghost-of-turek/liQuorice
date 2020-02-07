@@ -7,7 +7,7 @@ from common import DSN, SendMessage
 
 
 async def main():
-    async with db_wrapper(drop=True):
+    async with db.with_bind(DSN):
         scheduler = Scheduler()
         await asyncio.gather(
             *(scheduler.schedule(task) for task in get_tasks()),

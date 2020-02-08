@@ -3,12 +3,13 @@ from liquorice.core.tasks import (
     Job,
     JobRegistry,
     Schedule,
-    Scheduler,
     Task,
     Toolbox,
 )
+from liquorice.core.scheduler import Scheduler
 
 
 __all__ = [
-    'db', 'Job', 'JobRegistry', 'Schedule', 'Scheduler', 'Task', 'Toolbox',
+    'db', 'AsyncThreadedPool',
+    'Job', 'JobRegistry', 'Schedule', 'Scheduler', 'Task', 'Toolbox',
 ]

@@ -1,7 +1,6 @@
-import attr
-
 from typing import Dict
 
+import attr
 from liquorice.core.tasks import Job, JobRegistry, Toolbox
 
 
@@ -27,4 +26,4 @@ class SendMessage(Job):
         return 'send_message'
 
     async def run(self, toolbox: ExampleToolbox) -> None:
-        print(f'To: {toolbox.contacts[self.to]}\n{self.message}\n')
+        print(f'To: {toolbox.contacts[self.to]}\n{self.message}')

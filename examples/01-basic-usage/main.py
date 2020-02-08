@@ -19,7 +19,7 @@ def get_tasks():
         Task(
             job=SendMessage(
                 message='Always look at the bright side of life!',
-                to='darkness',
+                to='abyss',
             ),
             schedule=Schedule.now(),
         ),
@@ -32,13 +32,13 @@ def get_tasks():
         ),
         Task(
             job=SendMessage(
-                message='Stares at The Abyss in awkward silence.',
-                to='darkness',
+                message='<stares at The Abyss in awkward silence>',
+                to='abyss',
             ),
         ),
         # `SendMessage` by default sends them to Nietzsche so I can omit this.
         # Actually, let's omit all the boring crud and get to the point.
-        Task(SendMessage('Stares at Nietzche majestically.')),
+        Task(SendMessage('<stares at Nietzche majestically>')),
     ]
 
 

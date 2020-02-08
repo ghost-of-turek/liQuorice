@@ -13,7 +13,7 @@ setup(
     namespace_packages=['liquorice'],
     packages=find_packages(),
     python_requires='>=3.7',
-    install_requires=['attrs', 'gino', 'SQLAlchemy'],
+    install_requires=['aiolog', 'attrs', 'gino', 'SQLAlchemy'],
     extras_require={
         'testing': ['mypy', 'flake8', 'pytest']
     },

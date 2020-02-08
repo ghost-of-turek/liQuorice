@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Generic, TypeVar, List, Optional, Protocol
+from typing import Any, Dict, Generic, TypeVar, List, Optional, Protocol, Type
 
 import attr
 
@@ -27,18 +27,18 @@ GenericJob = TypeVar('GenericJob', bound=Job)
 
 @attr.s
 class JobRegistry:
-    _jobs: Dict[str, Job] = attr.ib(default=attr.Factory(dict))
+    _jobs: Dict[str, Type[Job]] = attr.ib(default=attr.Factory(dict))
 
     @property
     def job_count(self) -> int:
         return len(self._jobs)
 
-    def job(self, cls: Job) -> None:
+    def job(self, cls: Type[Job]) -> None:
         self._jobs[cls.name()] = cls
         return cls
 
-    def get(self, name: str) -> Optional[Job]:
-        return self._jobs.get(name, default=None)
+    def get(self, name: str) -> Optional[Type[Job]]:
+        return self._jobs.get(name, None)
 
 
 @attr.s

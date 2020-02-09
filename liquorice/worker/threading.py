@@ -3,8 +3,6 @@ import logging
 import threading
 from typing import Any
 
-import aiolog
-
 from liquorice.core.database import db
 
 
@@ -38,11 +36,10 @@ class BaseThread(threading.Thread):
         raise NotImplementedError
 
     async def _setup(self) -> None:
-        aiolog.start(loop=self.loop)
+        pass
 
     async def _run(self) -> None:
         raise NotImplementedError
 
     async def _teardown(self) -> None:
         await db.bind._pool.close_for_thread()
-        await aiolog.stop()

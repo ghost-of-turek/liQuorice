@@ -1,6 +1,6 @@
 import attr
 
-from liquorice.core.db import QueuedTask
+from liquorice.core.database import QueuedTask
 from liquorice.core.tasks import Task
 
 

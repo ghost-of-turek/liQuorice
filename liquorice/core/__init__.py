@@ -1,4 +1,4 @@
-from liquorice.core.db import db
+from liquorice.core.database import db, MultiLoopPool
 from liquorice.core.tasks import (
     Job,
     JobRegistry,

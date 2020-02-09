@@ -4,7 +4,8 @@ from typing import Any, Dict, Generic, TypeVar, List, Optional, Protocol, Type
 import attr
 
 from liquorice.core.const import TaskStatus
-from liquorice.core.db import QueuedTask
+from liquorice.core.database import QueuedTask
+from liquorice.core.exceptions import DuplicateTaskError
 
 
 @attr.s
@@ -34,7 +35,10 @@ class JobRegistry:
         return len(self._jobs)
 
     def job(self, cls: Type[Job]) -> None:
-        self._jobs[cls.name()] = cls
+        name = cls.name()
+        if name in self._jobs:
+            raise DuplicateTaskError(name)
+        self._jobs[name] = cls
         return cls
 
     def get(self, name: str) -> Optional[Type[Job]]:

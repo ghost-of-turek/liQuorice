@@ -1,0 +1,6 @@
+class LiquoriceException(Exception):
+    ...
+
+
+class DuplicateTaskError(LiquoriceException):
+    ...

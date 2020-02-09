@@ -4,7 +4,7 @@ from typing import List, Optional, Protocol, Tuple
 
 import attr
 
-from liquorice.core.db import db, QueuedTask
+from liquorice.core.database import db, QueuedTask
 from liquorice.core.tasks import Job, JobRegistry, TaskStatus
 from liquorice.worker.threading import BaseThread
 from liquorice.worker.worker import WorkerThread

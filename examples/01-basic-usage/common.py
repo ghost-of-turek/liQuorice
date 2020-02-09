@@ -1,16 +1,18 @@
-from typing import Dict
-import threading
-
 import attr
-from liquorice.core.tasks import Job, JobRegistry, Toolbox
+from liquorice.core import Job, JobRegistry, Toolbox
 
 
 DSN = 'postgres://liquorice:liquorice@localhost:5432/liquorice'
 
 
+class Printer:
+    def print(self, string):
+        print(string)
+
+
 @attr.s
 class ExampleToolbox(Toolbox):
-    contacts: Dict[str, str] = attr.ib()
+    printer: Printer = attr.ib()
 
 
 job_registry = JobRegistry()
@@ -18,15 +20,12 @@ job_registry = JobRegistry()
 
 @job_registry.job
 @attr.s
-class SendMessage(Job):
-    message: str = attr.ib(default='')
-    to: str = attr.ib(default='nietzche')
+class PrintMessage(Job):
+    message: str = attr.ib()
 
     @staticmethod
     def name() -> str:
-        return 'send_message'
+        return 'print_message'
 
     async def run(self, toolbox: ExampleToolbox) -> None:
-        print(f'To: {toolbox.contacts[self.to]}')
-        print(f'Message: {self.message}')
-        print(f'Ran on [{threading.current_thread().name}]')
+        toolbox.printer.print(f'Message: {self.message}')

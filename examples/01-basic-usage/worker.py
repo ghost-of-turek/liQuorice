@@ -2,23 +2,18 @@ import asyncio
 import time
 
 # import coloredlogs
-from liquorice.core.db import db, MultiLoopPool
+from liquorice.core import db, MultiLoopPool
 from liquorice.worker import (
     DispatcherThread,
     RoundRobinSelector,
     WorkerThread,
 )
 
-from common import job_registry, DSN, ExampleToolbox
+from common import job_registry, DSN, ExampleToolbox, Printer
 
 
 async def worker():
-    toolbox = ExampleToolbox(
-        contacts={
-            'nietzsche': 'Friedrich Nietzsche <nietzsche@philo.com>',
-            'abyss': 'Mr. Abyss <abyss@scarystuff.org>',
-        },
-    )
+    toolbox = ExampleToolbox(printer=Printer())
 
     async with db.with_bind(DSN, pool_class=MultiLoopPool):
         worker_handles = []

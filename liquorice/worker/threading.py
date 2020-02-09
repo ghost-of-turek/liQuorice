@@ -5,7 +5,7 @@ from typing import Any
 
 import aiolog
 
-from liquorice.core.db import db
+from liquorice.core.database import db
 
 
 class BaseThread(threading.Thread):

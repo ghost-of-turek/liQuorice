@@ -7,7 +7,7 @@ from gino.dialects.asyncpg import Pool as AsyncpgPool
 from liquorice.core.const import TaskStatus
 
 
-class AsyncThreadedPool(GinoPool):
+class MultiLoopPool(GinoPool):
     def __init__(self, url, loop, **kwargs):
         self._url = url
         self._kwargs = kwargs
@@ -36,16 +36,18 @@ class AsyncThreadedPool(GinoPool):
         pools = list(self._pools.values())
         self._pools.clear()
         for pool in pools:
-            await pool.close()
+            await pool.result().close()
 
     async def _get_pool(self):
         loop = asyncio.get_event_loop()
         rv = self._pools.get(loop)
         if rv is None:
-            pool = await AsyncpgPool(self._url, loop, **self._kwargs)
-            self._pools[loop] = pool
-            rv = pool
-        return rv
+            rv = self._pools[loop] = asyncio.Future()
+            rv.set_result(await AsyncpgPool(self._url, loop, **self._kwargs))
+        return await rv
+
+    async def close_for_thread(self):
+        await (await self._get_pool()).close()
 
 
 db = Gino()

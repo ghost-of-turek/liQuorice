@@ -10,6 +10,6 @@ from liquorice.core.scheduler import Scheduler
 
 
 __all__ = [
-    'db', 'AsyncThreadedPool',
+    'db', 'MultiLoopPool',
     'Job', 'JobRegistry', 'Schedule', 'Scheduler', 'Task', 'Toolbox',
 ]

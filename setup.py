@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 with open('README.md') as f:
     long_description = f.read()
 
-PACKAGE_VERSION = '0.0.5'
+PACKAGE_VERSION = '0.0.8'
 
 
 setup(
@@ -15,9 +15,9 @@ setup(
     python_requires='>=3.7',
     install_requires=['aiolog', 'attrs', 'gino', 'SQLAlchemy'],
     extras_require={
-        'testing': ['mypy', 'flake8', 'pytest']
+        'testing': ['mypy', 'flake8', 'pytest'],
     },
-    description='Generic task queue for async Python',
+    description='PostgreSQL-backed generic task queue for async Python',
     long_description=long_description,
     long_description_content_type='text/markdown',
     license='MIT',
@@ -40,6 +40,6 @@ setup(
         'Topic :: System :: Distributed Computing',
         'Topic :: Utilities',
     ],
-    keywords=['async', 'queue', 'task', 'job'],
+    keywords=['async', 'queue', 'task', 'job', 'postgres'],
     url='https://github.com/ghost-of-turek/liQuorice',
 )

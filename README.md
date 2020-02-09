@@ -1,3 +1,3 @@
 # liQuorice
 
-Generic task queue for async Python.
+PostgreSQL-backed generic task queue for async Python.

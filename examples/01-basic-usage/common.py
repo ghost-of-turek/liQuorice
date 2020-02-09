@@ -1,4 +1,5 @@
 from typing import Dict
+import threading
 
 import attr
 from liquorice.core.tasks import Job, JobRegistry, Toolbox
@@ -26,4 +27,6 @@ class SendMessage(Job):
         return 'send_message'
 
     async def run(self, toolbox: ExampleToolbox) -> None:
-        print(f'To: {toolbox.contacts[self.to]}\n{self.message}')
+        print(f'To: {toolbox.contacts[self.to]}')
+        print(f'Message: {self.message}')
+        print(f'Ran on [{threading.current_thread().name}]')

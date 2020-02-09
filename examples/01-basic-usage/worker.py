@@ -1,9 +1,13 @@
 import asyncio
 import time
 
-import coloredlogs
-from liquorice.core.db import db, AsyncThreadedPool
-from liquorice.worker import WorkerThread
+# import coloredlogs
+from liquorice.core.db import db, MultiLoopPool
+from liquorice.worker import (
+    DispatcherThread,
+    RoundRobinSelector,
+    WorkerThread,
+)
 
 from common import job_registry, DSN, ExampleToolbox
 
@@ -16,16 +20,28 @@ async def worker():
         },
     )
 
-    async with db.with_bind(DSN, pool_class=AsyncThreadedPool):
-        handles = []
-        for id_ in range(2):
+    async with db.with_bind(DSN, pool_class=MultiLoopPool):
+        worker_handles = []
+        dispatcher_handles = []
+
+        for id_ in range(10):
             handle = WorkerThread(
-                id_=id_,
-                job_registry=job_registry,
                 toolbox=toolbox,
+                id_=id_,
             )
             handle.start()
-            handles.append(handle)
+            worker_handles.append(handle)
+
+        for id_ in range(1):
+            handle = DispatcherThread(
+                job_registry=job_registry,
+                worker_selector=RoundRobinSelector(worker_handles),
+                id_=id_,
+            )
+            handle.start()
+            dispatcher_handles.append(handle)
+
+        handles = worker_handles + dispatcher_handles
 
         try:
             while True:
@@ -38,5 +54,4 @@ async def worker():
                 handle.join()
 
 
-coloredlogs.install()
 asyncio.run(worker())

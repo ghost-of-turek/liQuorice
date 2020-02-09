@@ -23,14 +23,14 @@ async def main():
     for dispatcher_thread in runner._dispatcher_threads:
         print(
             f'Dispatcher thread {dispatcher_thread.name} '
-            f'pulled {len(dispatcher_thread._tasks)} tasks.',
+            f'pulled {len(dispatcher_thread._running_tasks)} tasks.',
         )
 
-    # for worker_thread in runner._worker_threads:
-    #     print(
-    #         f'Worker thread {worker_thread.name} '
-    #         f'ran {len(worker_thread._done_tasks)} tasks.',
-    #     )
+    for worker_thread in runner._worker_threads:
+        print(
+            f'Worker thread {worker_thread.name} '
+            f'ran {len(worker_thread._tasks)} tasks.',
+        )
 
 
 asyncio.run(main())

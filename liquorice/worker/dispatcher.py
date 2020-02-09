@@ -1,14 +1,20 @@
 import asyncio
 from collections import defaultdict
-from logging import Logger
 from typing import Dict, List, Optional, Protocol, Tuple
 
 import attr
 
 from liquorice.core.database import db, QueuedTask
-from liquorice.core.tasks import Job, JobRegistry, TaskStatus
+from liquorice.core.tasks import Job, JobRegistry, Schedule, Task, TaskStatus
 from liquorice.worker.threading import BaseThread
 from liquorice.worker.worker import WorkerThread
+
+
+@attr.s
+class RunningTask:
+    task: Task = attr.ib()
+    worker_thread: WorkerThread = attr.ib()
+    future: asyncio.Future = attr.ib()
 
 
 @attr.s
@@ -29,50 +35,6 @@ class RoundRobinSelector(WorkerSelector):
         return worker
 
 
-@attr.s
-class Puller:
-    job_registry: JobRegistry = attr.ib()
-    logger: Logger = attr.ib()
-
-    async def pull(self) -> Optional[Tuple[int, Job]]:
-        async with db.transaction():
-            task = await QueuedTask.query.where(
-                QueuedTask.status == TaskStatus.NEW,
-            ).gino.first()
-
-            if task is None:
-                return None
-
-            self.logger.info(f'Processing task {task.id}.')
-
-            job_cls = self.job_registry.get(task.job)
-            if job_cls is None:
-                self.logger.warning(
-                    f'Error while processing task {task.id}: '
-                    f'job `{task.job.name()}` is not in the registry.')
-                return None
-
-            return task.id, job_cls(**task.data)
-
-
-@attr.s
-class Dispatcher:
-    logger: Logger = attr.ib()
-    job_registry: JobRegistry = attr.ib()
-    worker_selector: WorkerSelector = attr.ib()
-
-    async def dispatch(
-        self, task_id: int, job: Job,
-    ) -> Tuple[WorkerThread, asyncio.Task]:
-        worker_thread = self.worker_selector.select()
-        task = await worker_thread.schedule(job, self.job_registry.toolbox)
-        self.logger.info(
-            f'Job `{job.name()}` for task {task_id} '
-            f'scheduled on worker {worker_thread.name}.'
-        )
-        return worker_thread, task
-
-
 class DispatcherThread(BaseThread):
     def __init__(
         self, job_registry: JobRegistry,
@@ -80,17 +42,11 @@ class DispatcherThread(BaseThread):
     ):
         super().__init__(*args, **kwargs)
 
+        self._worker_selector = worker_selector
+        self._running_tasks: List[RunningTask] = []
         self._jobs: Dict[asyncio.Future, Job] = {}
-        self._tasks: Dict[asyncio.Future, str] = defaultdict(list)
-        self._puller = Puller(
-            job_registry=job_registry,
-            logger=self._logger,
-        )
-        self._dispatcher = Dispatcher(
-            job_registry=job_registry,
-            worker_selector=worker_selector,
-            logger=self._logger,
-        )
+        self._workers: Dict[asyncio.Future, str] = defaultdict(list)
+        self._job_registry = job_registry
 
     @property
     def ident(self) -> str:
@@ -102,26 +58,53 @@ class DispatcherThread(BaseThread):
 
     async def _run(self) -> None:
         while not self._stop_event.is_set():
-            task_id, job = await self._puller.pull()
-            if job is None:
+            task = await self._pull_task()
+            if task is None:
                 self._logger.info(
                     f'Nothing to do, sleeping for 5s...',
                 )
                 await asyncio.sleep(5)
             else:
-                self._logger.info(
-                    f'Job `{job.name()}` will be scheduled '
-                    f'to run for task {task_id} '
-                    f'on worker {self.name}.'
-                )
-                worker_thread, task = await self._dispatcher.dispatch(
-                    task_id, job,
-                )
-                print(task)
-                self._jobs[task] = job
-                self._tasks[task].append(worker_thread)
+                await self._handle_task(task)
 
-        await asyncio.gather(*self._tasks)
+        await asyncio.gather(*self._workers)
+
+    async def _pull_task(self) -> Optional[Tuple[int, Job]]:
+        async with db.transaction():
+            queued_task = await QueuedTask.query.where(
+                QueuedTask.status == TaskStatus.NEW,
+            ).gino.first()
+
+            if queued_task is None:
+                return None
+
+            self._logger.info(f'Processing task {queued_task.id}.')
+
+            job_cls = self._job_registry.get(queued_task.job)
+            if job_cls is None:
+                self._logger.warning(
+                    f'Error while processing task {queued_task.id}: '
+                    f'job `{queued_task.job.name()}` is not in the registry.',
+                )
+                return None
+
+            return Task(
+                job=job_cls(**queued_task.data),
+                schedule=Schedule(due_at=queued_task.due_at),
+                status=queued_task.status,
+                queued_task=queued_task,
+            )
+
+    async def _handle_task(self, task) -> None:
+        worker_thread = self._worker_selector.select()
+        future = await worker_thread.schedule(
+            task.job, self._job_registry.toolbox,
+        )
+        self._running_tasks.append(RunningTask(task, worker_thread, future))
+        self._logger.info(
+            f'Job `{task.job.name()}` for task {task.id} '
+            f'scheduled on worker {worker_thread.name}.'
+        )
 
     async def _teardown(self) -> None:
         self._logger.info(

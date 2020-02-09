@@ -18,10 +18,10 @@ class Toolbox(Protocol):
 class Job(Protocol):
     @staticmethod
     def name() -> str:
-        pass
+        raise NotImplementedError
 
     async def start(self, toolbox: Toolbox) -> Any:
-        return await asyncio.ensure_future(self.run(toolbox))
+        return asyncio.ensure_future(self.run(toolbox))
 
     async def run(self, toolbox: Toolbox) -> Any:
         raise NotImplementedError
@@ -74,7 +74,7 @@ class Task(Generic[GenericJob]):
 
     @property
     def id(self) -> Optional[int]:
-        if self.queued():
+        if self.queued:
             return self.queued_task.id
         return None
 

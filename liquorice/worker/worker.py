@@ -5,12 +5,18 @@ from liquorice.worker.threading import BaseThread
 
 
 class WorkerThread(BaseThread):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tasks = []
+
     @property
     def ident(self) -> str:
         return f'liquorice.worker'
 
     async def schedule(self, job: Job, toolbox: Toolbox) -> asyncio.Future:
-        return asyncio.ensure_future(job.start(toolbox))
+        future = await asyncio.ensure_future(job.start(toolbox))
+        self._tasks.append(future)
+        return future
 
     async def _setup(self) -> None:
         await super()._setup()

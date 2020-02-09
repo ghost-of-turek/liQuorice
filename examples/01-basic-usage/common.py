@@ -11,7 +11,7 @@ class Printer:
 
 
 @attr.s
-class ExampleToolbox(Toolbox):
+class PrintingRoom(Toolbox):
     printer: Printer = attr.ib()
 
 
@@ -27,5 +27,5 @@ class PrintMessage(Job):
     def name() -> str:
         return 'print_message'
 
-    async def run(self, toolbox: ExampleToolbox) -> None:
+    async def run(self, toolbox: PrintingRoom) -> None:
         toolbox.printer.print(f'Message: {self.message}')

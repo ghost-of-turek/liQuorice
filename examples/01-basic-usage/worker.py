@@ -4,15 +4,14 @@ import signal
 from liquorice.core import db, MultiLoopPool
 from liquorice.worker import Runner
 
-from common import job_registry, DSN, ExampleToolbox, Printer
+from common import job_registry, DSN, PrintingRoom, Printer
 
 
-toolbox = ExampleToolbox(printer=Printer())
 runner = Runner(
     dispatchers=1,
     workers=5,
     job_registry=job_registry,
-    toolbox=toolbox,
+    toolbox=PrintingRoom(printer=Printer()),
 )
 signal.signal(signal.SIGTERM, runner.stop_on_signal)
 signal.signal(signal.SIGINT, runner.stop_on_signal)

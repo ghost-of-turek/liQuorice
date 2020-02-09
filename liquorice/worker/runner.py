@@ -4,7 +4,7 @@ import threading
 
 import attr
 
-from liquorice.core import JobRegistry, Toolbox
+from liquorice.core import JobRegistry
 from liquorice.worker.dispatcher import (
     DispatcherThread,
     RoundRobinSelector,
@@ -18,7 +18,6 @@ class Runner:
     dispatchers: int = attr.ib()
     workers: int = attr.ib()
     job_registry: JobRegistry = attr.ib()
-    toolbox: Toolbox = attr.ib()
 
     _stop_event: threading.Event = attr.ib(
         default=attr.Factory(threading.Event),
@@ -30,10 +29,7 @@ class Runner:
 
     def __attrs_post_init__(self):
         for id_ in range(self.workers):
-            worker_thread = WorkerThread(
-                toolbox=self.toolbox,
-                id_=id_,
-            )
+            worker_thread = WorkerThread(id_=id_)
             self._worker_threads.append(worker_thread)
         for id_ in range(self.dispatchers):
             dispatcher_thread = DispatcherThread(

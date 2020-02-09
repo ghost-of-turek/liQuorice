@@ -15,7 +15,7 @@ class PrintingRoom(Toolbox):
     printer: Printer = attr.ib()
 
 
-job_registry = JobRegistry()
+job_registry = JobRegistry(toolbox=PrintingRoom(printer=Printer()))
 
 
 @job_registry.job

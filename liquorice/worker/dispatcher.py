@@ -58,13 +58,14 @@ class Puller:
 @attr.s
 class Dispatcher:
     logger: Logger = attr.ib()
+    job_registry: JobRegistry = attr.ib()
     worker_selector: WorkerSelector = attr.ib()
 
     async def dispatch(
         self, task_id: int, job: Job,
     ) -> Tuple[WorkerThread, asyncio.Task]:
         worker_thread = self.worker_selector.select()
-        task = worker_thread.schedule(job)
+        task = await worker_thread.schedule(job, self.job_registry.toolbox)
         self.logger.info(
             f'Job `{job.name()}` for task {task_id} '
             f'scheduled on worker {worker_thread.name}.'
@@ -79,13 +80,14 @@ class DispatcherThread(BaseThread):
     ):
         super().__init__(*args, **kwargs)
 
-        self._jobs: Job = []
-        self._tasks: Dict[asyncio.Task, str] = defaultdict(list)
+        self._jobs: Dict[asyncio.Future, Job] = {}
+        self._tasks: Dict[asyncio.Future, str] = defaultdict(list)
         self._puller = Puller(
             job_registry=job_registry,
             logger=self._logger,
         )
         self._dispatcher = Dispatcher(
+            job_registry=job_registry,
             worker_selector=worker_selector,
             logger=self._logger,
         )
@@ -107,7 +109,6 @@ class DispatcherThread(BaseThread):
                 )
                 await asyncio.sleep(5)
             else:
-                self._jobs.append(job)
                 self._logger.info(
                     f'Job `{job.name()}` will be scheduled '
                     f'to run for task {task_id} '
@@ -116,10 +117,11 @@ class DispatcherThread(BaseThread):
                 worker_thread, task = await self._dispatcher.dispatch(
                     task_id, job,
                 )
-                self._tasks[worker_thread].append(task)
+                print(task)
+                self._jobs[task] = job
+                self._tasks[task].append(worker_thread)
 
-        for worker_thread, tasks in self._tasks.items():
-            await asyncio.gather(*tasks)
+        await asyncio.gather(*self._tasks)
 
     async def _teardown(self) -> None:
         self._logger.info(

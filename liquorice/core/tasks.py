@@ -1,11 +1,12 @@
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, Generic, TypeVar, List, Optional, Protocol, Type
 
 import attr
 
+from liquorice.core import exceptions
 from liquorice.core.const import TaskStatus
 from liquorice.core.database import QueuedTask
-from liquorice.core.exceptions import DuplicateTaskError
 
 
 @attr.s
@@ -20,7 +21,7 @@ class Job(Protocol):
         pass
 
     async def start(self, toolbox: Toolbox) -> Any:
-        return await self.run(toolbox)
+        return await asyncio.ensure_future(self.run(toolbox))
 
     async def run(self, toolbox: Toolbox) -> Any:
         raise NotImplementedError
@@ -31,6 +32,7 @@ GenericJob = TypeVar('GenericJob', bound=Job)
 
 @attr.s
 class JobRegistry:
+    toolbox: Toolbox = attr.ib()
     _jobs: Dict[str, Type[Job]] = attr.ib(default=attr.Factory(dict))
 
     @property
@@ -40,7 +42,7 @@ class JobRegistry:
     def job(self, cls: Type[Job]) -> None:
         name = cls.name()
         if name in self._jobs:
-            raise DuplicateTaskError(name)
+            raise exceptions.DuplicateTaskError(name)
         self._jobs[name] = cls
         return cls
 

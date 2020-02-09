@@ -8,7 +8,7 @@ This example assumes that your database is a local postgres listening on `localh
 
 ```bash
 # run the producer
-python main.py
+python producer.py
 
 # run the worker
 python worker.py

@@ -1,52 +1,24 @@
 import asyncio
-import time
+import signal
 
-# import coloredlogs
 from liquorice.core import db, MultiLoopPool
-from liquorice.worker import (
-    DispatcherThread,
-    RoundRobinSelector,
-    WorkerThread,
-)
+from liquorice.worker import Runner
 
 from common import job_registry, DSN, ExampleToolbox, Printer
 
 
-async def worker():
+async def main():
     toolbox = ExampleToolbox(printer=Printer())
+    runner = Runner(
+        dispatchers=1,
+        workers=5,
+        job_registry=job_registry,
+        toolbox=toolbox,
+    )
+    signal.signal(signal.SIGINT, lambda s, f: runner.stop())
 
     async with db.with_bind(DSN, pool_class=MultiLoopPool):
-        worker_handles = []
-        dispatcher_handles = []
-
-        for id_ in range(10):
-            handle = WorkerThread(
-                toolbox=toolbox,
-                id_=id_,
-            )
-            handle.start()
-            worker_handles.append(handle)
-
-        for id_ in range(1):
-            handle = DispatcherThread(
-                job_registry=job_registry,
-                worker_selector=RoundRobinSelector(worker_handles),
-                id_=id_,
-            )
-            handle.start()
-            dispatcher_handles.append(handle)
-
-        handles = worker_handles + dispatcher_handles
-
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            for handle in handles:
-                handle.stop()
-        finally:
-            for handle in handles:
-                handle.join()
+        await runner.run()
 
 
-asyncio.run(worker())
+asyncio.run(main())

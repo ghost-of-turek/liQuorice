@@ -1,6 +1,7 @@
 import asyncio
+from collections import defaultdict
 from logging import Logger
-from typing import List, Optional, Protocol, Tuple
+from typing import Dict, List, Optional, Protocol, Tuple
 
 import attr
 
@@ -14,7 +15,7 @@ from liquorice.worker.worker import WorkerThread
 class WorkerSelector(Protocol):
     workers: List[WorkerThread] = attr.ib()
 
-    def select(self):
+    def select(self) -> WorkerThread:
         raise NotImplementedError
 
 
@@ -58,18 +59,17 @@ class Puller:
 class Dispatcher:
     logger: Logger = attr.ib()
     worker_selector: WorkerSelector = attr.ib()
-    _handles: List[asyncio.Task] = attr.ib(default=attr.Factory(list))
 
-    async def dispatch(self, task_id: int, job: Job) -> None:
-        worker = self.worker_selector.select()
-        self._handles.append(worker.schedule(job))
+    async def dispatch(
+        self, task_id: int, job: Job,
+    ) -> Tuple[WorkerThread, asyncio.Task]:
+        worker_thread = self.worker_selector.select()
+        task = worker_thread.schedule(job)
         self.logger.info(
             f'Job `{job.name()}` for task {task_id} '
-            f'scheduled on worker {worker.name}.'
+            f'scheduled on worker {worker_thread.name}.'
         )
-
-    async def flush(self) -> None:
-        await asyncio.gather(*self._handles)
+        return worker_thread, task
 
 
 class DispatcherThread(BaseThread):
@@ -79,6 +79,8 @@ class DispatcherThread(BaseThread):
     ):
         super().__init__(*args, **kwargs)
 
+        self._jobs: Job = []
+        self._tasks: Dict[asyncio.Task, str] = defaultdict(list)
         self._puller = Puller(
             job_registry=job_registry,
             logger=self._logger,
@@ -105,12 +107,19 @@ class DispatcherThread(BaseThread):
                 )
                 await asyncio.sleep(5)
             else:
+                self._jobs.append(job)
                 self._logger.info(
                     f'Job `{job.name()}` will be scheduled '
                     f'to run for task {task_id} '
                     f'on worker {self.name}.'
                 )
-                await self._dispatcher.dispatch(task_id, job)
+                worker_thread, task = await self._dispatcher.dispatch(
+                    task_id, job,
+                )
+                self._tasks[worker_thread].append(task)
+
+        for worker_thread, tasks in self._tasks.items():
+            await asyncio.gather(*tasks)
 
     async def _teardown(self) -> None:
         self._logger.info(

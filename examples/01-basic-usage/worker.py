@@ -21,5 +21,19 @@ async def main():
     async with db.with_bind(DSN, pool_class=MultiLoopPool):
         await runner.run()
 
+    for dispatcher_thread in runner._dispatcher_threads:
+        tasks = dispatcher_thread._tasks
+        tasks_cnt = sum(map(lambda k: len(tasks[k]), tasks))
+        print(
+            f'Dispatcher thread {dispatcher_thread.name} '
+            f'pulled {tasks_cnt} tasks.',
+        )
+
+    for worker_thread in runner._worker_threads:
+        print(
+            f'Worker thread {worker_thread.name} '
+            f'ran {len(worker_thread._done_tasks)} tasks.',
+        )
+
 
 asyncio.run(main())

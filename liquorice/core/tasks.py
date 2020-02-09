@@ -19,8 +19,11 @@ class Job(Protocol):
     def name() -> str:
         pass
 
+    async def start(self, toolbox: Toolbox) -> Any:
+        return await self.run(toolbox)
+
     async def run(self, toolbox: Toolbox) -> Any:
-        pass
+        raise NotImplementedError
 
 
 GenericJob = TypeVar('GenericJob', bound=Job)

@@ -17,12 +17,14 @@ class WorkerThread(BaseThread):
     def ident(self) -> str:
         return f'liquorice.worker'
 
-    def schedule(self, job: Job) -> None:
-        self.loop.create_task(self._schedule(job))
+    def schedule(self, job: Job) -> asyncio.Task:
+        future = asyncio.Future()
+        future.set_result(self.loop.create_task(self._schedule(job)))
+        return future
 
     async def _schedule(self, job: Job) -> None:
         self._pending_tasks.append(
-            self.loop.create_task(job.run(self._toolbox))
+            self.loop.create_task(job.start(self._toolbox))
         )
 
     async def _setup(self) -> None:
@@ -32,6 +34,7 @@ class WorkerThread(BaseThread):
     async def _run(self) -> None:
         while not self._stop_event.is_set():
             await asyncio.sleep(1)
+
         while self._pending_tasks:
             done, pending = await asyncio.wait(
                 self._pending_tasks, return_when=asyncio.FIRST_COMPLETED,
@@ -40,9 +43,11 @@ class WorkerThread(BaseThread):
                 self._pending_tasks.remove(task)
                 self._done_tasks.append(task)
 
+        await asyncio.gather(*self._done_tasks)
+
     async def _teardown(self) -> None:
         self._logger.info(f'Worker thread {self.name} shut down successfully.')
         await super()._teardown()
 
-    async def _get_done_task(self) -> Optional[asyncio.Task]:
+    async def get_done_task(self) -> Optional[asyncio.Task]:
         return self._done_tasks.pop() if self._done_tasks else None

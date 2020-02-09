@@ -19,30 +19,30 @@ class BaseThread(threading.Thread):
         self._sleep = sleep
         self._logger = logging.getLogger(self.ident)
 
-    def run(self):
+    def run(self) -> None:
         asyncio.set_event_loop(self.loop)
 
         self.loop.run_until_complete(self._setup())
         self.loop.run_until_complete(self._run())
         self.loop.run_until_complete(self._teardown())
 
-    def stop(self):
-        self.loop.call_soon_threadsafe(self._stop_event.set)
+    def stop(self) -> None:
+        self._stop_event.set()
 
     @property
-    def name(self):
+    def name(self) -> str:
         return f'{self.ident}.{self.id}'
 
     @property
-    def ident(self):
+    def ident(self) -> str:
         raise NotImplementedError
 
-    async def _setup(self):
+    async def _setup(self) -> None:
         aiolog.start(loop=self.loop)
 
-    async def _run(self):
+    async def _run(self) -> None:
         raise NotImplementedError
 
-    async def _teardown(self):
+    async def _teardown(self) -> None:
         await db.bind._pool.close_for_thread()
         await aiolog.stop()

@@ -59,3 +59,6 @@ class Runner:
     @property
     def _all_threads(self) -> List[BaseThread]:
         return self._worker_threads + self._dispatcher_threads
+
+    def stop_on_signal(self, signal, frame):
+        self.stop()

@@ -89,14 +89,14 @@ class DispatcherThread(BaseThread):
         )
 
     @property
-    def ident(self):
+    def ident(self) -> str:
         return f'liquorice.dispatcher'
 
-    async def _setup(self):
+    async def _setup(self) -> None:
         await super()._setup()
         self._logger.info(f'Dispatcher thread {self.name} is up and running.')
 
-    async def _run(self):
+    async def _run(self) -> None:
         while not self._stop_event.is_set():
             task_id, job = await self._puller.pull()
             if job is None:
@@ -112,7 +112,7 @@ class DispatcherThread(BaseThread):
                 )
                 await self._dispatcher.dispatch(task_id, job)
 
-    async def _teardown(self):
+    async def _teardown(self) -> None:
         self._logger.info(
             f'Dispatcher thread {self.name} shut down successfully.',
         )

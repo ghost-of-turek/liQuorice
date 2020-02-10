@@ -32,7 +32,7 @@ GenericJob = TypeVar('GenericJob', bound=Job)
 
 @attr.s
 class JobRegistry:
-    toolbox: Toolbox = attr.ib()
+    toolbox: Toolbox = attr.ib(default=None)
     _jobs: Dict[str, Type[Job]] = attr.ib(default=attr.Factory(dict))
 
     @property
@@ -84,7 +84,7 @@ class Task(Generic[GenericJob]):
             result=json.loads(queued_task.result),
         )
 
-    async def save(self) -> QueuedTask:
+    async def save(self):
         if self.id:
             queued_task = await QueuedTask.get(self.id)
             queued_task.status = self.status
@@ -100,4 +100,3 @@ class Task(Generic[GenericJob]):
                 result=json.dumps(self.result),
             )
             self.id = queued_task.id
-        return queued_task

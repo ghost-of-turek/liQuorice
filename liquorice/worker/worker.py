@@ -1,5 +1,4 @@
 import asyncio
-from typing import Any
 
 from liquorice.core import Job, Toolbox
 from liquorice.worker.threading import BaseThread
@@ -24,6 +23,7 @@ class WorkerThread(BaseThread):
         self, job: Job, toolbox: Toolbox, future: asyncio.Future,
     ) -> None:
         result = await job.start(toolbox)
+        self.processed_tasks += 1
         future.set_result(result)
 
     async def _setup(self) -> None:
@@ -37,11 +37,6 @@ class WorkerThread(BaseThread):
         await asyncio.gather(
             *[await task for task in self._tasks],
         )
-
-    async def _finalize(self, future: asyncio.Future) -> Any:
-        result = await future
-        self.processed_tasks += 1
-        return result
 
     async def _teardown(self) -> None:
         self._logger.info(f'Worker thread {self.name} shut down successfully.')

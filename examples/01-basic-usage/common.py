@@ -2,23 +2,13 @@ import asyncio
 import random
 
 import attr
-from liquorice.core import Job, JobRegistry, Toolbox
+from liquorice.core import Job, JobRegistry
 
 
 DSN = 'postgres://liquorice:liquorice@localhost:5432/liquorice'
 
 
-class Printer:
-    def print(self, string):
-        print(string)
-
-
-@attr.s
-class PrintingRoom(Toolbox):
-    printer: Printer = attr.ib()
-
-
-job_registry = JobRegistry(toolbox=PrintingRoom(printer=Printer()))
+job_registry = JobRegistry()
 
 
 @job_registry.job
@@ -30,8 +20,8 @@ class PrintMessage(Job):
     def name() -> str:
         return 'print_message'
 
-    async def run(self, toolbox: PrintingRoom) -> None:
-        toolbox.printer.print(f'Message: {self.message}')
+    async def run(self, toolbox: None) -> None:
+        print(f'Message: {self.message}')
         return await self._get_return_value()
 
     async def _get_return_value(self) -> int:

@@ -6,6 +6,8 @@ from liquorice.worker import Runner
 
 from common import job_registry, DSN
 
+import coloredlogs
+
 
 runner = Runner(
     dispatchers=1,
@@ -33,4 +35,5 @@ async def main():
     #     )
 
 
+coloredlogs.install()
 asyncio.run(main())

@@ -60,7 +60,7 @@ class DispatcherThread(BaseThread):
             task = await self._pull_task()
             if task is None:
                 self._logger.info(f'Nothing to do, sleeping for 5s...')
-                await asyncio.sleep(10)
+                await asyncio.sleep(5)
             else:
                 self._running_tasks.append(task)
 
@@ -112,18 +112,17 @@ class DispatcherThread(BaseThread):
         task, future = attr.astuple(
             running_task, recurse=False,
         )
-        result = future.result()
 
+        task.result = future.result()
         self.processed_tasks += 1
 
-        task.result = result
         if isinstance(task.result, Exception):
             task.status = TaskStatus.ERROR
         else:
             task.status = TaskStatus.DONE
 
         async with db.transaction():
-            await running_task.task.apply()
+            await running_task.task.save()
 
     async def _teardown(self) -> None:
         self._logger.info(

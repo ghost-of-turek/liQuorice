@@ -18,7 +18,7 @@ async def main():
 
         while not stop_ev.is_set():
             task = random_task()
-            await task.as_queued_task()
+            await task.save()
             print(f'Scheduled task {task.id}.')
             await asyncio.sleep(1)
 

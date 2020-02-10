@@ -81,12 +81,15 @@ class Task(Generic[GenericJob]):
             job=job_cls(**queued_task.data),
             schedule=Schedule(due_at=queued_task.due_at),
             status=queued_task.status,
-            result=queued_task.result,
+            result=json.loads(queued_task.result),
         )
 
-    async def as_queued_task(self) -> QueuedTask:
+    async def save(self) -> QueuedTask:
         if self.id:
-            return await QueuedTask.get(self.id)
+            queued_task = await QueuedTask.get(self.id)
+            queued_task.status = self.status
+            queued_task.result = self.result
+            await queued_task.apply()
         else:
             queued_task = await QueuedTask.create(
                 job=self.job.name(),
@@ -97,7 +100,4 @@ class Task(Generic[GenericJob]):
                 result=json.dumps(self.result),
             )
             self.id = queued_task.id
-            return queued_task
-
-    async def apply(self) -> None:
-        await(await self.as_queued_task()).apply()
+        return queued_task

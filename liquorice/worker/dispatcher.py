@@ -1,11 +1,10 @@
 import asyncio
-from collections import defaultdict
-from typing import Any, Dict, List, Protocol
+from typing import Any, List, Protocol
 
 import attr
 
 from liquorice.core.database import db, QueuedTask
-from liquorice.core.tasks import Job, JobRegistry, Task, TaskStatus
+from liquorice.core.tasks import JobRegistry, Task, TaskStatus
 from liquorice.worker.threading import BaseThread
 from liquorice.worker.worker import WorkerThread
 
@@ -57,12 +56,9 @@ class DispatcherThread(BaseThread):
         while not self._stop_event.is_set():
             task = await self._pull_task()
             if task is None:
-                self._logger.info(f'Nothing to do, sleeping for 5s...')
-                await asyncio.sleep(5)
+                await asyncio.sleep(0.1)
             else:
                 self._running_tasks.append(task)
-
-            await asyncio.sleep(2)
 
         await asyncio.gather(*self._running_tasks)
 

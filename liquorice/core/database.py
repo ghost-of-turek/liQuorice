@@ -8,6 +8,10 @@ from liquorice.core.const import TaskStatus
 
 
 class Gino(BaseGino):
+    def set_bind(self, bind, loop=None, **kwargs):
+        kwargs['pool_class'] = MultiLoopPool
+        return super().set_bind(bind, loop=loop, **kwargs)
+
     def with_bind(self, bind, loop=None, **kwargs):
         kwargs['pool_class'] = MultiLoopPool
         return super().with_bind(bind, loop=loop, **kwargs)
@@ -45,15 +49,15 @@ class MultiLoopPool(GinoPool):
         pools = list(self._pools.values())
         self._pools.clear()
         for pool in pools:
-            await pool.result().close()
+            await pool.close()
 
     async def _get_pool(self):
         loop = asyncio.get_event_loop()
-        rv = self._pools.get(loop)
-        if rv is None:
-            rv = self._pools[loop] = asyncio.Future()
-            rv.set_result(await AsyncpgPool(self._url, loop, **self._kwargs))
-        return await rv
+        if loop not in self._pools:
+            self._pools[loop] = await AsyncpgPool(
+                self._url, loop, **self._kwargs,
+            )
+        return self._pools[loop]
 
     async def close_for_current_loop(self):
         await (await self._get_pool()).close()

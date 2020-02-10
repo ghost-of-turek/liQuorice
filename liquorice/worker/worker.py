@@ -15,7 +15,9 @@ class WorkerThread(BaseThread):
 
     def schedule(self, job: Job, toolbox: Toolbox) -> asyncio.Future:
         future = asyncio.Future()
-        self.loop.create_task(self._schedule(job, toolbox, future))
+        self._tasks.append(
+            self.loop.create_task(self._schedule(job, toolbox, future)),
+        )
         return future
 
     async def _schedule(
@@ -31,11 +33,17 @@ class WorkerThread(BaseThread):
 
     async def _run(self) -> None:
         while not self._stop_event.is_set():
-            await asyncio.sleep(0.5)
+            if self._tasks:
+                (done, pending) = await asyncio.wait(
+                    self._tasks, return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in done:
+                    self._tasks.remove(task)
 
-        await asyncio.gather(
-            *[await task for task in self._tasks],
-        )
+        if self._tasks:
+            await asyncio.gather(
+                *[await task for task in self._tasks],
+            )
 
     async def _teardown(self) -> None:
         self._logger.info(f'Worker thread {self.name} shut down successfully.')

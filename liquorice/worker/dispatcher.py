@@ -1,6 +1,6 @@
 import asyncio
 from collections import defaultdict
-from typing import Dict, List, Optional, Protocol, Tuple
+from typing import Dict, List, Protocol
 
 import attr
 
@@ -68,7 +68,7 @@ class DispatcherThread(BaseThread):
 
         await asyncio.gather(*self._running_tasks)
 
-    async def _pull_task(self) -> Optional[Tuple[int, Job]]:
+    async def _pull_task(self) -> asyncio.Task:
         async with db.transaction():
             queued_task = await QueuedTask.query.where(
                 QueuedTask.status == TaskStatus.NEW,
@@ -93,31 +93,31 @@ class DispatcherThread(BaseThread):
             f'Job `{task.job.name()}` for task {task.id} pulled.',
         )
 
-        return self.loop.create_task(self._process_task(task))
+        return asyncio.create_task(self._process_task(task))
 
     async def _process_task(self, task: Task) -> None:
         worker_thread = self._worker_selector.select()
-        future = asyncio.Future()
-        future.set_result(await worker_thread.schedule(
-            task.job, self._job_registry.toolbox,
-        ))
-        running_task = RunningTask(task, future)
-        self._running_tasks.append(running_task)
+        running_task = RunningTask(task, asyncio.Future())
+
+        await worker_thread.schedule(
+            task.job, self._job_registry.toolbox, running_task.future,
+        )
         self._logger.info(
             f'Job `{task.job.name()}` for task {task.id} '
             f'scheduled on worker {worker_thread.name}.'
         )
-        return await self._finalize_task(running_task)
+        await self._finalize_task(running_task)
 
     async def _finalize_task(self, running_task: RunningTask) -> None:
-        task, future = attr.astuple(running_task, recurse=False)
-        result = await future
+        task, future = attr.astuple(
+            running_task, recurse=False,
+        )
+        result = future.result()
 
-        self._running_tasks.remove(running_task)
         self.processed_tasks += 1
 
         task.result = result
-        if isinstance(result, Exception):
+        if isinstance(task.result, Exception):
             task.status = TaskStatus.ERROR
         else:
             task.status = TaskStatus.DONE

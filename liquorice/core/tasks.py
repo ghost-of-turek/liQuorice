@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 import json
 from typing import Any, Dict, Generic, TypeVar, List, Optional, Protocol, Type
@@ -22,7 +21,7 @@ class Job(Protocol):
         raise NotImplementedError
 
     async def start(self, toolbox: Toolbox) -> Any:
-        return asyncio.ensure_future(self.run(toolbox))
+        return await self.run(toolbox)
 
     async def run(self, toolbox: Toolbox) -> Any:
         raise NotImplementedError

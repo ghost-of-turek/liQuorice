@@ -20,17 +20,17 @@ async def main():
     async with db.with_bind(DSN):
         await runner.run()
 
-    for dispatcher_thread in runner._dispatcher_threads:
-        print(
-            f'Dispatcher thread {dispatcher_thread.name} '
-            f'pulled {dispatcher_thread.processed_tasks} tasks.',
-        )
+    # for dispatcher_thread in runner._dispatcher_threads:
+    #     print(
+    #         f'Dispatcher thread {dispatcher_thread.name} '
+    #         f'pulled {dispatcher_thread.processed_tasks} tasks.',
+    #     )
 
-    for worker_thread in runner._worker_threads:
-        print(
-            f'Worker thread {worker_thread.name} '
-            f'ran {worker_thread.processed_tasks} tasks.',
-        )
+    # for worker_thread in runner._worker_threads:
+    #     print(
+    #         f'Worker thread {worker_thread.name} '
+    #         f'ran {worker_thread.processed_tasks} tasks.',
+    #     )
 
 
 asyncio.run(main())

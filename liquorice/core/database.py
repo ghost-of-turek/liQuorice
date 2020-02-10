@@ -1,8 +1,11 @@
 import asyncio
+import datetime
+from typing import Optional
 
 from gino import Gino as BaseGino
 from gino.dialects.base import Pool as GinoPool
 from gino.dialects.asyncpg import Pool as AsyncpgPool
+from sqlalchemy import and_
 
 from liquorice.core.const import TaskStatus
 
@@ -75,6 +78,26 @@ class QueuedTask(db.Model):
     due_at = db.Column(db.DateTime())
     status = db.Column(db.Enum(TaskStatus))
     result = db.Column(db.JSON(), default='')
+
+    @classmethod
+    async def pull(cls) -> Optional['QueuedTask']:
+        candidates = cls.select('id').where(
+            and_(
+                cls.status == TaskStatus.NEW,
+                cls.due_at <= datetime.datetime.now(),
+            ),
+        ).order_by('due_at').limit(1).cte('candidates')
+        query = cls.update.values(status=TaskStatus.PROCESSING).where(
+            and_(
+                cls.id == (
+                    cls.select('id').select_from(candidates).limit(1),
+                ),
+                cls.status == TaskStatus.NEW,
+            ),
+        ).returning(*cls)
+        print(str(query))
+        async with db.transaction():
+            return await query.gino.one_or_none()
 
     async def apply(self) -> None:
         await self.update(status=self.status, result=self.result).apply()

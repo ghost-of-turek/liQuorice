@@ -35,14 +35,17 @@ class WorkerThread(BaseThread):
         while not self._stop_event.is_set():
             if self._tasks:
                 (done, pending) = await asyncio.wait(
-                    self._tasks, return_when=asyncio.FIRST_COMPLETED,
+                    *self._running_tasks,
+                    timeout=0.1,
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
                 for task in done:
-                    self._tasks.remove(task)
+                    await task
+                self._tasks = pending
 
         if self._tasks:
             await asyncio.gather(
-                *[await task for task in self._tasks],
+                *[task for task in self._tasks],
             )
 
     async def _teardown(self) -> None:

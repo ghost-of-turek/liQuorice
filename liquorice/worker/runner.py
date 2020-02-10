@@ -43,7 +43,7 @@ class Runner:
         for handle in self._all_threads:
             handle.start()
         while not self._stop_event.is_set():
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
         for handle in self._all_threads:
             handle.join()
 
@@ -54,7 +54,7 @@ class Runner:
 
     @property
     def _all_threads(self) -> List[BaseThread]:
-        return self._worker_threads + self._dispatcher_threads
+        return self._dispatcher_threads + self._worker_threads
 
     def stop_on_signal(self, signal, frame):
         self.stop()

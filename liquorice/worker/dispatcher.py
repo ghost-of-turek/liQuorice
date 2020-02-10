@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, List, Protocol
+from typing import List, Protocol
 
 import attr
 
@@ -7,12 +7,6 @@ from liquorice.core.database import db, QueuedTask
 from liquorice.core.tasks import JobRegistry, Task, TaskStatus
 from liquorice.worker.threading import BaseThread
 from liquorice.worker.worker import WorkerThread
-
-
-@attr.s
-class CompletedTask:
-    task: Task = attr.ib()
-    result: Any = attr.ib()
 
 
 @attr.s
@@ -55,18 +49,24 @@ class DispatcherThread(BaseThread):
     async def _run(self) -> None:
         while not self._stop_event.is_set():
             task = await self._pull_task()
-            if task is None:
-                await asyncio.sleep(0.1)
-            else:
+            if task is not None:
                 self._running_tasks.append(task)
+
+            if self._running_tasks:
+                (done, pending) = await asyncio.wait(
+                    *self._running_tasks,
+                    timeout=0.1,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in done:
+                    await task
+                self._running_tasks = pending
 
         await asyncio.gather(*self._running_tasks)
 
     async def _pull_task(self) -> asyncio.Task:
         async with db.transaction():
-            queued_task = await QueuedTask.query.where(
-                QueuedTask.status == TaskStatus.NEW,
-            ).gino.first()
+            queued_task = await QueuedTask.pull()
 
         if queued_task is None:
             return None
@@ -76,7 +76,7 @@ class DispatcherThread(BaseThread):
         job_cls = self._job_registry.get(queued_task.job)
         if job_cls is None:
             self._logger.warning(
-                f'Error while processing task {queued_task.id}: '
+                f'Error while pulling task {queued_task.id}: '
                 f'job `{queued_task.job}` is not in the registry.',
             )
             return None
@@ -106,13 +106,7 @@ class DispatcherThread(BaseThread):
             'completed successfully.',
         )
 
-        completed_task = CompletedTask(task, future.result())
-        await self._finalize_task(completed_task)
-
-    async def _finalize_task(self, completed_task: CompletedTask) -> None:
-        task, result = attr.astuple(completed_task, recurse=False)
-
-        task.result = result
+        task.result = future.result()
         if isinstance(task.result, Exception):
             task.status = TaskStatus.ERROR
         else:

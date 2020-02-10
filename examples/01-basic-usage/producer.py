@@ -13,14 +13,15 @@ stop_ev = threading.Event()
 
 async def main():
     async with db.with_bind(DSN):
-        await db.gino.drop_all()
         await db.gino.create_all()
 
         while not stop_ev.is_set():
             task = random_task()
             await task.save()
             print(f'Scheduled task {task.id}.')
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)
+
+        await db.gino.drop_all()
 
 
 def random_task() -> Task:

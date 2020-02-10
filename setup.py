@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 with open('README.md') as f:
     long_description = f.read()
 
-PACKAGE_VERSION = '0.0.8'
+PACKAGE_VERSION = '0.0.13'
 
 
 setup(

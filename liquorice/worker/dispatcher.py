@@ -1,6 +1,6 @@
 import asyncio
 from collections import defaultdict
-from typing import Dict, List, Protocol
+from typing import Any, Dict, List, Protocol
 
 import attr
 
@@ -11,16 +11,16 @@ from liquorice.worker.worker import WorkerThread
 
 
 @attr.s
-class RunningTask:
+class CompletedTask:
     task: Task = attr.ib()
-    future: asyncio.Future = attr.ib()
+    result: Any = attr.ib()
 
 
 @attr.s
 class WorkerSelector(Protocol):
     workers: List[WorkerThread] = attr.ib()
 
-    def select(self) -> WorkerThread:
+    def select(self, task: Task) -> WorkerThread:
         raise NotImplementedError
 
 
@@ -28,7 +28,7 @@ class WorkerSelector(Protocol):
 class RoundRobinSelector(WorkerSelector):
     _index: int = attr.ib(default=0)
 
-    def select(self) -> WorkerThread:
+    def select(self, task: Task) -> WorkerThread:
         worker = self.workers[self._index]
         self._index = (self._index + 1) % len(self.workers)
         return worker
@@ -94,33 +94,38 @@ class DispatcherThread(BaseThread):
         return asyncio.create_task(self._process_task(task))
 
     async def _process_task(self, task: Task) -> None:
-        worker_thread = self._worker_selector.select()
-        running_task = RunningTask(task, asyncio.Future())
+        worker_thread = self._worker_selector.select(task)
 
-        await worker_thread.schedule(
-            task.job, self._job_registry.toolbox, running_task.future,
+        future = worker_thread.schedule(
+            task.job, self._job_registry.toolbox,
         )
         self._logger.info(
             f'Job `{task.job.name()}` for task {task.id} '
-            f'scheduled on worker {worker_thread.name}.'
-        )
-        await self._finalize_task(running_task)
-
-    async def _finalize_task(self, running_task: RunningTask) -> None:
-        task, future = attr.astuple(
-            running_task, recurse=False,
+            f'scheduled on worker {worker_thread.name}.',
         )
 
-        task.result = future.result()
-        self.processed_tasks += 1
+        await future
+        self._logger.info(
+            f'Job `{task.job.name()}` for task {task.id} '
+            'completed successfully.',
+        )
 
+        completed_task = CompletedTask(task, future.result())
+        await self._finalize_task(completed_task)
+
+    async def _finalize_task(self, completed_task: CompletedTask) -> None:
+        task, result = attr.astuple(completed_task, recurse=False)
+
+        task.result = result
         if isinstance(task.result, Exception):
             task.status = TaskStatus.ERROR
         else:
             task.status = TaskStatus.DONE
 
+        self.processed_tasks += 1
+
         async with db.transaction():
-            await running_task.task.save()
+            await task.save()
 
     async def _teardown(self) -> None:
         self._logger.info(

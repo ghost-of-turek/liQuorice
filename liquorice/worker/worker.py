@@ -13,11 +13,10 @@ class WorkerThread(BaseThread):
     def ident(self) -> str:
         return 'liquorice.worker'
 
-    async def schedule(
-        self, job: Job, toolbox: Toolbox, future: asyncio.Future,
-    ) -> None:
+    def schedule(self, job: Job, toolbox: Toolbox) -> asyncio.Future:
+        future = asyncio.Future()
         self.loop.create_task(self._schedule(job, toolbox, future))
-        await future
+        return future
 
     async def _schedule(
         self, job: Job, toolbox: Toolbox, future: asyncio.Future,

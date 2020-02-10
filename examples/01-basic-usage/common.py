@@ -22,8 +22,5 @@ class PrintMessage(Job):
 
     async def run(self, toolbox: None) -> None:
         print(f'Message: {self.message}')
-        return await self._get_return_value()
-
-    async def _get_return_value(self) -> int:
         await asyncio.sleep(random.random())
         return 42

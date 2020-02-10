@@ -10,7 +10,7 @@ class BaseThread(threading.Thread):
     def __init__(self, id_: Any = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.id = threading.get_ident() if id_ is None else id_
+        self.id = id_ if id_ is not None else threading.get_ident()
         self.loop = asyncio.new_event_loop()
         self.processed_tasks = 0
 

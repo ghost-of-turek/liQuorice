@@ -11,7 +11,7 @@ class WorkerThread(BaseThread):
 
     @property
     def ident(self) -> str:
-        return f'liquorice.worker'
+        return 'liquorice.worker'
 
     async def schedule(self, job: Job, toolbox: Toolbox) -> asyncio.Future:
         future = asyncio.Future()

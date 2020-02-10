@@ -49,7 +49,7 @@ class DispatcherThread(BaseThread):
 
     @property
     def ident(self) -> str:
-        return f'liquorice.dispatcher'
+        return 'liquorice.dispatcher'
 
     async def _setup(self) -> None:
         await super()._setup()

@@ -42,10 +42,8 @@ class DispatcherThread(BaseThread):
         super().__init__(*args, **kwargs)
 
         self._worker_selector = worker_selector
-        self._running_tasks: List[RunningTask] = []
-        self._jobs: Dict[asyncio.Future, Job] = {}
-        self._workers: Dict[asyncio.Future, str] = defaultdict(list)
         self._job_registry = job_registry
+        self._running_tasks: List[asyncio.Task] = []
 
     @property
     def ident(self) -> str:

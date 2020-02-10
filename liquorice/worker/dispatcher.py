@@ -5,7 +5,7 @@ from typing import Dict, List, Optional, Protocol, Tuple
 import attr
 
 from liquorice.core.database import db, QueuedTask
-from liquorice.core.tasks import Job, JobRegistry, Schedule, Task, TaskStatus
+from liquorice.core.tasks import Job, JobRegistry, Task, TaskStatus
 from liquorice.worker.threading import BaseThread
 from liquorice.worker.worker import WorkerThread
 
@@ -13,7 +13,6 @@ from liquorice.worker.worker import WorkerThread
 @attr.s
 class RunningTask:
     task: Task = attr.ib()
-    worker_thread: WorkerThread = attr.ib()
     future: asyncio.Future = attr.ib()
 
 
@@ -60,14 +59,14 @@ class DispatcherThread(BaseThread):
         while not self._stop_event.is_set():
             task = await self._pull_task()
             if task is None:
-                self._logger.info(
-                    f'Nothing to do, sleeping for 5s...',
-                )
-                await asyncio.sleep(5)
+                self._logger.info(f'Nothing to do, sleeping for 5s...')
+                await asyncio.sleep(10)
             else:
-                await self._handle_task(task)
+                self._running_tasks.append(task)
 
-        await asyncio.gather(*self._workers)
+            await asyncio.sleep(2)
+
+        await asyncio.gather(*self._running_tasks)
 
     async def _pull_task(self) -> Optional[Tuple[int, Job]]:
         async with db.transaction():
@@ -75,36 +74,56 @@ class DispatcherThread(BaseThread):
                 QueuedTask.status == TaskStatus.NEW,
             ).gino.first()
 
-            if queued_task is None:
-                return None
+        if queued_task is None:
+            return None
 
-            self._logger.info(f'Processing task {queued_task.id}.')
+        self._logger.info(f'Processing task {queued_task.id}.')
 
-            job_cls = self._job_registry.get(queued_task.job)
-            if job_cls is None:
-                self._logger.warning(
-                    f'Error while processing task {queued_task.id}: '
-                    f'job `{queued_task.job.name()}` is not in the registry.',
-                )
-                return None
-
-            return Task(
-                job=job_cls(**queued_task.data),
-                schedule=Schedule(due_at=queued_task.due_at),
-                status=queued_task.status,
-                queued_task=queued_task,
+        job_cls = self._job_registry.get(queued_task.job)
+        if job_cls is None:
+            self._logger.warning(
+                f'Error while processing task {queued_task.id}: '
+                f'job `{queued_task.job}` is not in the registry.',
             )
+            return None
 
-    async def _handle_task(self, task) -> None:
-        worker_thread = self._worker_selector.select()
-        future = await worker_thread.schedule(
-            task.job, self._job_registry.toolbox,
+        task = Task.from_queued_task(queued_task, job_cls)
+
+        self._logger.info(
+            f'Job `{task.job.name()}` for task {task.id} pulled.',
         )
-        self._running_tasks.append(RunningTask(task, worker_thread, future))
+
+        return self.loop.create_task(self._process_task(task))
+
+    async def _process_task(self, task: Task) -> None:
+        worker_thread = self._worker_selector.select()
+        future = asyncio.Future()
+        future.set_result(await worker_thread.schedule(
+            task.job, self._job_registry.toolbox,
+        ))
+        running_task = RunningTask(task, future)
+        self._running_tasks.append(running_task)
         self._logger.info(
             f'Job `{task.job.name()}` for task {task.id} '
             f'scheduled on worker {worker_thread.name}.'
         )
+        return await self._finalize_task(running_task)
+
+    async def _finalize_task(self, running_task: RunningTask) -> None:
+        task, future = attr.astuple(running_task, recurse=False)
+        result = await future
+
+        self._running_tasks.remove(running_task)
+        self.processed_tasks += 1
+
+        task.result = result
+        if isinstance(result, Exception):
+            task.status = TaskStatus.ERROR
+        else:
+            task.status = TaskStatus.DONE
+
+        async with db.transaction():
+            await running_task.task.apply()
 
     async def _teardown(self) -> None:
         self._logger.info(

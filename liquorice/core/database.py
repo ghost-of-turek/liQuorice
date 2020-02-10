@@ -1,10 +1,19 @@
 import asyncio
 
-from gino import Gino
+from gino import Gino as BaseGino
 from gino.dialects.base import Pool as GinoPool
 from gino.dialects.asyncpg import Pool as AsyncpgPool
 
 from liquorice.core.const import TaskStatus
+
+
+class Gino(BaseGino):
+    def with_bind(self, bind, loop=None, **kwargs):
+        kwargs['pool_class'] = MultiLoopPool
+        return super().with_bind(bind, loop=loop, **kwargs)
+
+    async def close_for_current_loop(self):
+        await self.bind._pool.close_for_current_loop()
 
 
 class MultiLoopPool(GinoPool):
@@ -46,7 +55,7 @@ class MultiLoopPool(GinoPool):
             rv.set_result(await AsyncpgPool(self._url, loop, **self._kwargs))
         return await rv
 
-    async def close_for_thread(self):
+    async def close_for_current_loop(self):
         await (await self._get_pool()).close()
 
 
@@ -61,3 +70,7 @@ class QueuedTask(db.Model):
     data = db.Column(db.JSON(), default={})
     due_at = db.Column(db.DateTime())
     status = db.Column(db.Enum(TaskStatus))
+    result = db.Column(db.JSON(), default='')
+
+    async def apply(self) -> None:
+        await self.update(status=self.status, result=self.result).apply()

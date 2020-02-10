@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+import json
 from typing import Any, Dict, Generic, TypeVar, List, Optional, Protocol, Type
 
 import attr
@@ -69,15 +70,35 @@ class Task(Generic[GenericJob]):
     job: GenericJob = attr.ib()
     schedule: Schedule = attr.ib(default=Schedule.now())
     status: TaskStatus = attr.ib(default=TaskStatus.NEW)
+    id: int = attr.ib(default=None)
+    result: Any = attr.ib(default=None)
 
-    queued_task: QueuedTask = attr.ib(default=None)
+    @classmethod
+    def from_queued_task(
+        cls, queued_task: QueuedTask, job_cls: GenericJob,
+    ) -> 'Task':
+        return cls(
+            id=queued_task.id,
+            job=job_cls(**queued_task.data),
+            schedule=Schedule(due_at=queued_task.due_at),
+            status=queued_task.status,
+            result=queued_task.result,
+        )
 
-    @property
-    def id(self) -> Optional[int]:
-        if self.queued:
-            return self.queued_task.id
-        return None
+    async def as_queued_task(self) -> QueuedTask:
+        if self.id:
+            return await QueuedTask.get(self.id)
+        else:
+            queued_task = await QueuedTask.create(
+                job=self.job.name(),
+                data=attr.asdict(self.job),
+                due_at=self.schedule.due_at,
+                # after_tasks=self.schedule.after,
+                status=self.status,
+                result=json.dumps(self.result),
+            )
+            self.id = queued_task.id
+            return queued_task
 
-    @property
-    def queued(self) -> bool:
-        return self.queued_task is not None
+    async def apply(self) -> None:
+        await(await self.as_queued_task()).apply()

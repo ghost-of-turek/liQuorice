@@ -14,9 +14,10 @@ class WorkerThread(BaseThread):
         return f'liquorice.worker'
 
     async def schedule(self, job: Job, toolbox: Toolbox) -> asyncio.Future:
-        future = await asyncio.ensure_future(job.start(toolbox))
+        future = asyncio.Future()
+        future.set_result(self.loop.create_task(job.start(toolbox)))
         self._tasks.append(future)
-        return future
+        return await future
 
     async def _setup(self) -> None:
         await super()._setup()
@@ -27,13 +28,12 @@ class WorkerThread(BaseThread):
             await asyncio.sleep(1)
 
         await asyncio.gather(
-            *(
-                task
-                for task in asyncio.all_tasks()
-                if task != asyncio.current_task()
-            ),
-            loop=self.loop
+            *[await self._finalize(task) for task in self._tasks],
         )
+
+    async def _finalize(self, task: asyncio.Future) -> None:
+        self.processed_tasks += 1
+        return await task
 
     async def _teardown(self) -> None:
         self._logger.info(f'Worker thread {self.name} shut down successfully.')

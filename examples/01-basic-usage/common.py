@@ -1,3 +1,6 @@
+import asyncio
+import random
+
 import attr
 from liquorice.core import Job, JobRegistry, Toolbox
 
@@ -29,3 +32,8 @@ class PrintMessage(Job):
 
     async def run(self, toolbox: PrintingRoom) -> None:
         toolbox.printer.print(f'Message: {self.message}')
+        return await self._get_return_value()
+
+    async def _get_return_value(self) -> int:
+        await asyncio.sleep(random.random())
+        return 42

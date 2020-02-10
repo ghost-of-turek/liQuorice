@@ -7,14 +7,14 @@ from liquorice.core.database import db
 
 
 class BaseThread(threading.Thread):
-    def __init__(self, id_: Any = None, sleep: int = 5, *args, **kwargs):
+    def __init__(self, id_: Any = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.id = threading.get_ident() if id_ is None else id_
         self.loop = asyncio.new_event_loop()
-        self._stop_event = threading.Event()
+        self.processed_tasks = 0
 
-        self._sleep = sleep
+        self._stop_event = threading.Event()
         self._logger = logging.getLogger(self.ident)
 
     def run(self) -> None:
@@ -42,4 +42,4 @@ class BaseThread(threading.Thread):
         raise NotImplementedError
 
     async def _teardown(self) -> None:
-        await db.bind._pool.close_for_thread()
+        await db.close_for_current_loop()

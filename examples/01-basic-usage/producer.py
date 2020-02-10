@@ -1,34 +1,37 @@
 import asyncio
 import random
+import signal
+import threading
 
-from liquorice.core import db, Task, Scheduler
+from liquorice.core import db, Task
 
 from common import DSN, PrintMessage
 
 
+stop_ev = threading.Event()
+
+
 async def main():
     async with db.with_bind(DSN):
-        scheduler = Scheduler()
-        available_tasks = get_tasks()
-        tasks = []
+        await db.gino.drop_all()
+        await db.gino.create_all()
 
-        try:
-            while True:
-                tasks.append(
-                    scheduler.schedule(random.choice(available_tasks)),
-                )
-                await asyncio.sleep(1)
-        except KeyboardInterrupt:
-            pass
-
-        await asyncio.gather(*tasks)
+        while not stop_ev.is_set():
+            task = random_task()
+            await task.as_queued_task()
+            print(f'Scheduled task {task.id}.')
+            await asyncio.sleep(1)
 
 
-def get_tasks():
-    return [
+def random_task() -> Task:
+    return random.choice([
         Task(PrintMessage('<Nietzsche stares at the Abyss awkwardly>')),
         Task(PrintMessage('<The Abyss stares at Nietzche majestically>')),
-    ]
+    ])
+
+
+signal.signal(signal.SIGTERM, lambda s, f: stop_ev.set())
+signal.signal(signal.SIGINT, lambda s, f: stop_ev.set())
 
 
 asyncio.run(main())

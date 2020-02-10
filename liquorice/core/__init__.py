@@ -6,10 +6,8 @@ from liquorice.core.tasks import (
     Task,
     Toolbox,
 )
-from liquorice.core.scheduler import Scheduler
-
 
 __all__ = [
     'db', 'MultiLoopPool',
-    'Job', 'JobRegistry', 'Schedule', 'Scheduler', 'Task', 'Toolbox',
+    'Job', 'JobRegistry', 'Schedule', 'Task', 'Toolbox',
 ]

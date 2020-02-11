@@ -54,13 +54,13 @@ class DispatcherThread(BaseThread):
 
             if self._running_tasks:
                 (done, pending) = await asyncio.wait(
-                    *self._running_tasks,
+                    self._running_tasks,
                     timeout=0.1,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
                 for task in done:
                     await task
-                self._running_tasks = pending
+                self._running_tasks = list(pending)
 
         await asyncio.gather(*self._running_tasks)
 

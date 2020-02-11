@@ -7,7 +7,7 @@ from liquorice.worker.threading import BaseThread
 class WorkerThread(BaseThread):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._tasks = []
+        self._running_tasks = []
 
     @property
     def ident(self) -> str:
@@ -15,7 +15,7 @@ class WorkerThread(BaseThread):
 
     def schedule(self, job: Job, toolbox: Toolbox) -> asyncio.Future:
         future = asyncio.Future()
-        self._tasks.append(
+        self._running_tasks.append(
             self.loop.create_task(self._schedule(job, toolbox, future)),
         )
         return future
@@ -33,19 +33,19 @@ class WorkerThread(BaseThread):
 
     async def _run(self) -> None:
         while not self._stop_event.is_set():
-            if self._tasks:
+            if self._running_tasks:
                 (done, pending) = await asyncio.wait(
-                    *self._running_tasks,
+                    self._running_tasks,
                     timeout=0.1,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
                 for task in done:
                     await task
-                self._tasks = pending
+                self._running_tasks = list(pending)
 
-        if self._tasks:
+        if self._running_tasks:
             await asyncio.gather(
-                *[task for task in self._tasks],
+                *[task for task in self._running_tasks],
             )
 
     async def _teardown(self) -> None:

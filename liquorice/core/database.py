@@ -90,12 +90,14 @@ class QueuedTask(db.Model):
         query = cls.update.values(status=TaskStatus.PROCESSING).where(
             and_(
                 cls.id == (
-                    cls.select('id').select_from(candidates).limit(1),
+                    db.select([db.column('id')])
+                    .select_from(candidates)
+                    .limit(1)
                 ),
                 cls.status == TaskStatus.NEW,
             ),
         ).returning(*cls)
-        print(str(query))
+
         async with db.transaction():
             return await query.gino.one_or_none()
 

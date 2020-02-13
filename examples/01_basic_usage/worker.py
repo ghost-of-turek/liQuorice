@@ -8,9 +8,10 @@ from common import job_registry, DSN
 
 
 runner = Runner(
-    dispatchers=1,
-    workers=5,
+    dsn=DSN,
     job_registry=job_registry,
+    dispatchers=1,
+    workers=1,
 )
 signal.signal(signal.SIGTERM, runner.stop_on_signal)
 signal.signal(signal.SIGINT, runner.stop_on_signal)
@@ -33,4 +34,4 @@ async def main():
         )
 
 
-asyncio.run(main())
+asyncio.new_event_loop().run_until_complete(main())

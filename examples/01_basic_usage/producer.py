@@ -35,4 +35,4 @@ signal.signal(signal.SIGTERM, lambda s, f: stop_ev.set())
 signal.signal(signal.SIGINT, lambda s, f: stop_ev.set())
 
 
-asyncio.run(main())
+asyncio.new_event_loop().run_until_complete(main())

@@ -5,7 +5,7 @@ from typing import Optional
 from gino import Gino as BaseGino
 from gino.dialects.base import Pool as GinoPool
 from gino.dialects.asyncpg import Pool as AsyncpgPool
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 
 from liquorice.core.const import TaskStatus
 
@@ -83,18 +83,24 @@ class QueuedTask(db.Model):
     async def pull(cls) -> Optional['QueuedTask']:
         candidates = cls.select('id').where(
             and_(
-                cls.status == TaskStatus.NEW,
+                or_(
+                    cls.status == TaskStatus.NEW,
+                    cls.status == TaskStatus.RETRY,
+                ),
                 cls.due_at <= datetime.datetime.now(),
             ),
         ).order_by('due_at').limit(1).cte('candidates')
         query = cls.update.values(status=TaskStatus.PROCESSING).where(
             and_(
+                or_(
+                    cls.status == TaskStatus.NEW,
+                    cls.status == TaskStatus.RETRY,
+                ),
                 cls.id == (
                     db.select([db.column('id')])
                     .select_from(candidates)
                     .limit(1)
                 ),
-                cls.status == TaskStatus.NEW,
             ),
         ).returning(*cls)
 

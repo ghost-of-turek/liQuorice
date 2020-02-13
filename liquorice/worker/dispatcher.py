@@ -4,6 +4,11 @@ from typing import List, Protocol
 import attr
 
 from liquorice.core.database import db, QueuedTask
+from liquorice.core.exceptions import (
+    format_exception,
+    JobError,
+    RetryableError,
+)
 from liquorice.core.tasks import JobRegistry, Task, TaskStatus
 from liquorice.worker.threading import BaseThread
 from liquorice.worker.worker import WorkerThread
@@ -36,15 +41,10 @@ class DispatcherThread(BaseThread):
 
         self._worker_selector = worker_selector
         self._job_registry = job_registry
-        self._running_tasks: List[asyncio.Task] = []
 
     @property
-    def ident(self) -> str:
+    def name(self) -> str:
         return 'liquorice.dispatcher'
-
-    async def _setup(self) -> None:
-        await super()._setup()
-        self._logger.info(f'Dispatcher thread {self.name} is up and running.')
 
     async def _run(self) -> None:
         while not self._stop_event.is_set():
@@ -53,21 +53,21 @@ class DispatcherThread(BaseThread):
                 self._running_tasks.append(task)
 
             if self._running_tasks:
-                (done, pending) = await asyncio.wait(
+                (done, _) = await asyncio.wait(
                     self._running_tasks,
                     timeout=0.1,
                     return_when=asyncio.FIRST_COMPLETED,
                 )
                 for task in done:
                     await task
-                self._running_tasks = list(pending)
+                    self._running_tasks.remove(task)
 
-        await asyncio.gather(*self._running_tasks)
+    async def _teardown(self) -> None:
+        await db.close_for_current_loop()
+        await super()._teardown()
 
     async def _pull_task(self) -> asyncio.Task:
-        async with db.transaction():
-            queued_task = await QueuedTask.pull()
-
+        queued_task = await QueuedTask.pull()
         if queued_task is None:
             return None
 
@@ -97,28 +97,35 @@ class DispatcherThread(BaseThread):
         )
         self._logger.info(
             f'Job `{task.job.name()}` for task {task.id} '
-            f'scheduled on worker {worker_thread.name}.',
+            f'scheduled on worker {worker_thread.ident}.',
         )
 
         await future
-        self._logger.info(
-            f'Job `{task.job.name()}` for task {task.id} '
-            'completed successfully.',
-        )
 
         task.result = future.result()
-        if isinstance(task.result, Exception):
-            task.status = TaskStatus.ERROR
+        if isinstance(task.result, JobError):
+            task.result = format_exception(task.result)
+            if isinstance(task.result, RetryableError):
+                task.status = TaskStatus.RETRY
+                self._logger.info(
+                    f'Job `{task.job.name()}` for task {task.id} '
+                    'will be retried.',
+                )
+            else:
+                task.status = TaskStatus.ERROR
+                self._logger.info(
+                    f'Job `{task.job.name()}` for task {task.id} '
+                    'exited with an error.',
+                )
         else:
             task.status = TaskStatus.DONE
+            self._logger.info(
+                f'Job `{task.job.name()}` for task {task.id} '
+                'completed successfully.',
+            )
+            self.successful_tasks += 1
 
         self.processed_tasks += 1
 
         async with db.transaction():
             await task.save()
-
-    async def _teardown(self) -> None:
-        self._logger.info(
-            f'Dispatcher thread {self.name} shut down successfully.',
-        )
-        await super()._teardown()

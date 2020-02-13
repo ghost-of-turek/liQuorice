@@ -1,10 +1,10 @@
 import asyncio
-from typing import List
+from typing import List, Optional
 import threading
 
 import attr
 
-from liquorice.core import JobRegistry
+from liquorice.core import db, JobRegistry
 from liquorice.worker.dispatcher import (
     DispatcherThread,
     RoundRobinSelector,
@@ -15,46 +15,56 @@ from liquorice.worker.worker import WorkerThread
 
 @attr.s
 class Runner:
-    dispatchers: int = attr.ib()
-    workers: int = attr.ib()
+    dsn: str = attr.ib()
     job_registry: JobRegistry = attr.ib()
+    dispatchers: Optional[int] = attr.ib(default=None)
+    workers: Optional[int] = attr.ib(default=None)
+    worker_selector_class = attr.ib(default=None)
+    worker_threads: List[WorkerThread] = attr.ib(default=attr.Factory(list))
+    dispatcher_threads: List[DispatcherThread] = attr.ib(
+        default=attr.Factory(list),
+    )
 
     _stop_event: threading.Event = attr.ib(
         default=attr.Factory(threading.Event),
     )
-    _worker_threads: List[WorkerThread] = attr.ib(default=attr.Factory(list))
-    _dispatcher_threads: List[DispatcherThread] = attr.ib(
-        default=attr.Factory(list),
-    )
 
     def __attrs_post_init__(self):
-        for id_ in range(self.workers):
-            worker_thread = WorkerThread(id_=id_)
-            self._worker_threads.append(worker_thread)
-        for id_ in range(self.dispatchers):
-            dispatcher_thread = DispatcherThread(
-                job_registry=self.job_registry,
-                worker_selector=RoundRobinSelector(self._worker_threads),
-                id_=id_,
-            )
-            self._dispatcher_threads.append(dispatcher_thread)
+        if self.workers and not self.worker_threads:
+            for id_ in range(self.workers):
+                self.worker_threads.append(WorkerThread(id_=id_))
+        if self.dispatchers and not self.dispatcher_threads:
+            for id_ in range(self.dispatchers):
+                worker_selector_cls = (
+                    self.worker_selector_class or RoundRobinSelector
+                )
+                self.dispatcher_threads.append(DispatcherThread(
+
+                    job_registry=self.job_registry,
+                    worker_selector=worker_selector_cls(self.worker_threads),
+                    id_=id_,
+                ))
+
+        self.workers = len(self.worker_threads)
+        self.dispatchers = len(self.dispatcher_threads)
 
     async def run(self) -> None:
-        for handle in self._all_threads:
-            handle.start()
-        while not self._stop_event.is_set():
-            await asyncio.sleep(0.1)
-        for handle in self._all_threads:
-            handle.join()
+        async with db.with_bind(self.dsn):
+            for handle in self._all_threads:
+                handle.start()
+            while not self._stop_event.is_set():
+                await asyncio.sleep(0.1)
+            for handle in self.worker_threads:
+                handle.join()
 
     def stop(self) -> None:
-        self._stop_event.set()
         for handle in self._all_threads:
             handle.stop()
+        self._stop_event.set()
 
     @property
     def _all_threads(self) -> List[BaseThread]:
-        return self._dispatcher_threads + self._worker_threads
+        return self.dispatcher_threads + self.worker_threads
 
     def stop_on_signal(self, signal, frame):
         self.stop()
